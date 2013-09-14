@@ -1,0 +1,383 @@
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Insets;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.image.BufferStrategy;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+import java.io.IOException;
+import java.util.Timer;
+import java.util.TimerTask;
+import javax.swing.JFrame;
+
+public class gamemain {
+JFrame f;
+BufferStrategy bstrategy;
+final int wsx = 300,
+      wsy = 200;
+boolean up = false,
+      down = false,
+       left = false,
+       right = false;
+map m;
+int frame=0;
+          
+   gamemain(){
+       m = new map();
+       
+       f = new JFrame("MAP");
+       f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+       f.setBackground(Color.WHITE);
+       f.setResizable(false);
+       f.setVisible(true);
+       Insets insets = f.getInsets();
+       f.setSize(wsx + insets.left + insets.right,
+                         wsy + insets.top + insets.bottom);
+       
+       f.setIgnoreRepaint(true);
+       f.createBufferStrategy(2);
+       bstrategy = f.getBufferStrategy();
+       
+       f.addKeyListener(new MyKeyAdapter());
+       
+       Timer t = new Timer();
+       t.schedule(new timertask(),0,16);
+       
+   }
+
+  public static void main(String[] args){
+       gamemain g = new gamemain();
+   }
+
+  
+   class MyKeyAdapter extends KeyAdapter{
+       public void keyPressed(KeyEvent ev) {
+           if (ev.getKeyCode() == KeyEvent.VK_UP) up = true;
+           if(ev.getKeyCode() == KeyEvent.VK_LEFT)left = true;
+           if(ev.getKeyCode() == KeyEvent.VK_RIGHT)right = true;
+           if(ev.getKeyCode() == KeyEvent.VK_DOWN)down = true;
+       }
+       public void keyReleased(KeyEvent ev) {
+           if (ev.getKeyCode() == KeyEvent.VK_UP) up = false;
+           if(ev.getKeyCode() == KeyEvent.VK_LEFT)left = false;
+           if(ev.getKeyCode() == KeyEvent.VK_RIGHT)right = false;
+           if(ev.getKeyCode() == KeyEvent.VK_DOWN)down = false;
+       }
+   }
+
+  class timertask extends TimerTask{
+       public void run() {
+           Graphics g = bstrategy.getDrawGraphics();
+           if (bstrategy.contentsLost() == false){
+               Insets insets = f.getInsets();
+               g.translate(insets.left, insets.top);
+               g.clearRect(0,0,wsx,wsy);
+               
+               g.setColor(Color.BLACK);
+               for(int x=0;x<m.map.length;x++){
+                   for(int y=0;y<m.map[x].length;y++){
+                       if(m.map[x][y].isfloor){
+                       }
+                       else{
+                           g.fillRect(x,y,1,1);
+                       }
+                   }
+               }
+               
+               int i=0;
+               RECT t;
+               g.setColor(Color.RED);
+               while(m.block[i] != null){
+                   t = m.block[i].getRect();
+                   for(int x=t.x1;x<=t.x2;x++){
+                       g.fillRect(x,t.y1,1,1);
+                       g.fillRect(x,t.y2,1,1);
+                   }
+                   for(int y=t.y1;y<=t.y2;y++){
+                       g.fillRect(t.x1,y,1,1);
+                       g.fillRect(t.x2,y,1,1);
+                   }
+                   i++;
+               }
+               
+               if(frame==60){
+                   m = new map();
+                   frame=0;
+               }
+               
+               frame++;
+               
+               bstrategy.show();
+               g.dispose();
+           }
+       }
+   }
+}
+
+
+class map{
+final int MIN_SIZE_BLOCK = 5;
+final int MAX_NUM_TILE_X=47;
+final int MAX_NUM_TILE_Y=47;
+
+int limitbunkatu;
+TILE map[][] = new TILE[47][47];
+BLOCK block[] = new BLOCK[10];
+
+  static public void main(String args[]){
+       map m = new map();
+   }
+   
+   public map(){
+       //初期化
+       clearmap();
+       createmap(block[0],rand(),1);
+       createroom();
+       createtile();
+       show();
+   }
+   
+   //デバッグ用
+   public void show(){
+       int i=0;
+       System.out.println("BLOCK");
+       while(block[i] != null){
+           block[i].printblock();
+           i++;
+       }
+       i=0;
+       System.out.println("ROOM");
+       while(block[i] != null){
+           block[i].printroom();
+           i++;
+       }
+   }
+   
+   public void clearmap(){
+       for(int i=0;i<block.length;i++){
+           block[i] = null;
+       }
+       for(int i=0;i<map.length;i++){
+           for(int t=0;t<map[i].length;t++){
+               map[i][t] = new TILE();
+           }
+       }
+       //配列の番号で扱ってね！
+       block[0] = new BLOCK(new RECT(0,0,46,46));
+       //分割する回数
+       limitbunkatu = (int)(Math.random()*4)+3;
+   }
+   
+   public void createtile(){
+       int i=0;
+       RECT t;
+       while(block[i] != null){
+           t = block[i].room.getrect();
+           for(int y=t.y1;y<=t.y2;y++){
+               for(int x=t.x1;x<=t.x2;x++){
+                   map[x][y].turnfloor();
+               }
+           }
+           i++;
+       }
+   }
+   
+   public void createmap(BLOCK b,boolean isyoko,int kaisuu){
+       //よく使うので先に出しておく
+       final int sizex = b.getSizex();
+       final int sizey = b.getSizey();
+       final RECT p = new RECT(b.getRect());
+       final int basex = sizex/2;
+       int memory =  getnull();
+       
+       //条件
+       if(memory==0| |8<memory)return;
+       if(!(MIN_SIZE_BLOCK*2+1<=sizex)| |!(MIN_SIZE_BLOCK*2+1<=sizey))return;
+       if(kaisuu>limitbunkatu)return;
+       
+       //分割処理
+       if(isyoko){//横分割
+           final int x = (sizey-1)/2;
+           //元のやつを変更
+           //不変 x1,x2,y1 変動 y2,
+           b.sety2(p.y1+x-1);
+           //新しく作る
+           //不変 x1,x2,y2 変動 y1
+           block[memory] = new BLOCK(new RECT(p.x1,p.y1+x+1,p.x2,p.y2));
+       }
+       else{//縦分割
+           final int x = (sizex-1)/2;
+           //元のやつを変更
+           //不変 x1,y1,y2 変動 x2
+           b.setx2(p.x1+x-1);
+           //新しく作る
+           //不変 y1,y2,x2 変動 x1
+           block[memory] = new BLOCK(new RECT(p.x1+x+1,p.y1,p.x2,p.y2));
+       }
+       
+       createmap(block[memory],rand(),kaisuu+1);
+   }
+   
+   public void createroom(){
+       int i=0;
+       while(block[i]!=null){
+           block[i].createroom();
+           i++;
+       }
+   }
+   
+   public boolean rand(){
+       int i = (int)(Math.random()*2);
+       if(i==0)return true;
+       return false;
+   }
+   
+   public int getnull(){
+       int i=0;
+       while(block[i] != null){
+           i++;
+       }
+       return i;
+   }
+
+}
+
+
+class BLOCK{
+
+final int UP = 0;
+final int RIGHT = 1;
+final int LEFT = 2;
+final int DOWN = 3;
+
+final int MIN_SIZE_ROOM = 3;
+
+BLOCK neighbor[][] = new BLOCK[4][2];
+RECT size;
+ROOM room;
+boolean isCreateRoad[] = new boolean[4];
+
+  public BLOCK(){
+   }
+   
+   public BLOCK(RECT t){
+       size = t;
+   }
+   
+   public void printblock(){
+       System.out.println(size.x1+":"+size.y1);
+       System.out.println(size.getSizex()+":"+size.getSizey());
+   }
+   
+   public void printroom(){
+       System.out.println(room.rect.x1+";"+room.rect.y1);
+       System.out.println(room.rect.x2+";"+room.rect.y2);
+       System.out.println(room.rect.getSizex()+":"+room.rect.getSizey());
+   }
+   
+   public void createroom(){
+       int x1=0,y1=0,x2=0,y2=0;
+       //始点
+       x1 = (int)(Math.random()*(getSizex()-5))+1;
+       y1 = (int)(Math.random()*(getSizey()-5))+1;
+       //終点
+       x2 = (int)(Math.random()*(getSizex()-(x1+4)))+2+x1;
+       y2 = (int)(Math.random()*(getSizey()-(y1+4)))+2+y1;
+       
+       room = new ROOM(x1+size.x1,y1+size.y1,x2+size.x1,y2+size.y1);
+   }
+   
+   public void setSize(RECT t){
+       size = t;
+   }
+   public void setx1(int x1){
+       size.x1 = x1;
+   }
+   public void setx2(int x2){
+       size.x2 = x2;
+   }
+   public void sety1(int y1){
+       size.y1 = y1;
+   }
+   public void sety2(int y2){
+       size.y2 = y2;
+   }
+   public RECT getRect(){
+       return size;
+   }
+   public int getSizex(){
+       return size.getSizex();
+   }
+   public int getSizey(){
+       return size.getSizey();
+   }
+   
+   class ROOM{
+       RECT rect;
+   
+       public ROOM(int x1,int y1,int x2,int y2){
+           rect = new RECT(x1,y1,x2,y2);
+       }
+       public ROOM(RECT t){
+           rect = t;
+       }
+       
+       public RECT getrect(){
+           return rect;
+       }
+       
+       public int getSizex(){
+           return rect.getSizex();
+       }
+       public int getSizey(){
+           return rect.getSizey();
+       }
+   }
+
+}
+
+class TILE{
+boolean isfloor = false;
+boolean isstair = false;
+
+  public void turnfloor(){
+       isfloor = !isfloor;
+   }
+   
+   public void turnstair(){
+       isstair = !isstair;
+   }
+
+}
+
+class RECT{
+int x1,y1;
+int x2,y2;
+
+  public RECT(){
+   }
+   
+   public RECT(int x1,int y1,int x2,int y2){
+       this.x1 = x1;
+       this.y1 = y1;
+       this.x2 = x2;
+       this.y2 = y2;
+   }
+   
+   public RECT(RECT t){
+       this.x1 = t.x1;
+       this.y1 = t.y1;
+       this.x2 = t.x2;
+       this.y2 = t.y2;
+   }
+   
+   public int getSizex(){
+       return (x2-x1+1);
+   }
+   
+   public int getSizey(){
+       return (y2-y1+1);
+   }
